@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Istanbul Methane</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Carbon Mapper methane plumes over Istanbul's Seymen (Silivri) and Kömürcüoda (Şile) landfills, as 3D gas clouds on Google Photorealistic 3D Tiles.">
+<meta name="theme-color" content="#06080a">
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#06080a;font-family:Inter,"Inter Display",system-ui,sans-serif;color:#fff}
+  #cesiumContainer{position:absolute;inset:0}
+  .cesium-widget canvas{width:100%;height:100%}
+  .cesium-viewer-bottom{display:none!important}
+  /* vignette + grade */
+  #grade{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 55%,rgba(0,0,0,.42) 100%);}
+  #bars{position:absolute;inset:0;pointer-events:none}
+  #bars:before,#bars:after{content:"";position:absolute;left:0;right:0;height:0;background:#000}
+  /* HUD */
+  .hud{position:absolute;pointer-events:none;opacity:0;will-change:opacity,transform}
+  #brand{left:48px;top:40px;display:flex;align-items:center;gap:14px;letter-spacing:.22em;font-size:14px;font-weight:600;text-transform:uppercase;color:rgba(255,255,255,.92)}
+  #brand i{display:block;width:10px;height:10px;border-radius:50%;background:#ff7a2a;box-shadow:0 0 18px 4px rgba(255,122,42,.55)}
+  #brand .dim{color:rgba(255,255,255,.55);font-weight:500}
+  #title{left:48px;bottom:88px;max-width:1000px}
+  #title h1{margin:0 0 10px;font-family:"Inter Display",Inter,sans-serif;font-weight:600;font-size:72px;line-height:1.02;letter-spacing:-.025em;text-shadow:0 2px 24px rgba(0,0,0,.55)}
+  #title p{margin:0;font-size:24px;font-weight:400;color:rgba(255,255,255,.82);letter-spacing:-.005em;text-shadow:0 1px 12px rgba(0,0,0,.6)}
+  #card{left:auto;right:48px;bottom:84px;padding:22px 26px 20px;border-radius:18px;background:rgba(8,10,14,.52);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.1);min-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  #card .site{font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:600;margin-bottom:6px}
+  #card .name{font-family:"Inter Display",Inter,sans-serif;font-size:30px;font-weight:600;letter-spacing:-.02em;margin-bottom:14px}
+  #card .big{display:flex;align-items:baseline;gap:10px}
+  #card .big b{font-family:"Inter Display",Inter,sans-serif;font-size:64px;font-weight:600;letter-spacing:-.035em;line-height:1;color:#ffb17a;font-variant-numeric:tabular-nums}
+  #card .big span{font-size:18px;color:rgba(255,255,255,.75)}
+  #card .unc{font-size:15px;color:rgba(255,255,255,.55);margin-top:6px;font-variant-numeric:tabular-nums}
+  #card .meta{display:flex;gap:18px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1);font-size:15px;color:rgba(255,255,255,.8)}
+  #card .meta span b{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:3px}
+  #card .withheld{color:rgba(255,255,255,.75);font-size:28px;font-weight:500}
+  #tag{right:48px;top:40px;text-align:right;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.7);font-weight:600}
+  #tag small{display:block;letter-spacing:.06em;text-transform:none;font-size:13px;color:rgba(255,255,255,.5);font-weight:500;margin-top:6px}
+  #outro{left:0;right:0;top:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(4,6,8,.45)}
+  #outro h2{margin:0 0 14px;font-family:"Inter Display",Inter,sans-serif;font-size:54px;font-weight:600;letter-spacing:-.025em}
+  #outro p{margin:4px 0;font-size:22px;color:rgba(255,255,255,.8);max-width:960px;line-height:1.4}
+  #outro .cop{margin-top:34px;font-size:15px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:600}
+  /* credits (Google attribution must stay visible) */
+  #creditbar{position:absolute;left:0;right:0;bottom:0;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 48px;pointer-events:none;
+    background:linear-gradient(to top,rgba(0,0,0,.55),rgba(0,0,0,0))}
+  #srcline{font-size:12.5px;color:rgba(255,255,255,.72);letter-spacing:.01em}
+  #srcline b{font-weight:600;color:rgba(255,255,255,.9)}
+  #credits{font-size:11.5px;color:rgba(255,255,255,.75);text-align:right;max-width:1100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #credits .cesium-credit-logoContainer,#credits .cesium-credit-expand-link{display:none!important}
+  #credits .cesium-credit-textContainer{display:inline}
+  #credits a{color:inherit;text-decoration:none}
+  .gword{font-family:"Inter Display",Inter,sans-serif;font-weight:600;font-size:17px;letter-spacing:-.02em;vertical-align:-2px;margin-right:8px}
+  .gword .b{color:#4285F4}.gword .r{color:#EA4335}.gword .y{color:#FBBC05}.gword .g{color:#34A853}
+  .nohud .hud,.nohud #grade,.nohud #creditbar,.nohud #debug{display:none!important}
+
+  /* ---- interactive panel ---- */
+  :root{--cb:48px}
+  #panel{position:absolute;left:48px;top:96px;width:344px;max-height:calc(100% - 96px - var(--cb) - 20px);display:flex;flex-direction:column;border-radius:18px;background:rgba(8,10,14,.6);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.35);color:#fff;z-index:5}
+  .phead{display:flex;align-items:center;gap:10px;padding:14px 14px 10px 18px}
+  .phead .tt{flex:1;min-width:0}
+  #panel h2{margin:0;font-family:"Inter Display",Inter,sans-serif;font-size:17px;font-weight:600;letter-spacing:-.02em}
+  #psub{display:block;font-size:12px;color:rgba(255,255,255,.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .icon{appearance:none;width:32px;height:32px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;font:600 14px Inter,sans-serif;cursor:pointer;display:grid;place-items:center;flex:none}
+  .icon:hover{background:rgba(255,255,255,.12)}
+  #panelToggle{transition:transform .2s}.collapsed #panelToggle{transform:rotate(180deg)}
+  #pbody{flex:1 1 auto;min-height:72px;overflow:auto;padding:0 18px;scrollbar-width:thin;-webkit-mask-image:linear-gradient(#000 calc(100% - 18px),transparent);mask-image:linear-gradient(#000 calc(100% - 18px),transparent)}
+  #pfoot{flex:0 0 auto;padding:10px 18px 14px;border-top:1px solid rgba(255,255,255,.08)}
+  #panel.collapsed #pbody,#panel.collapsed #pfoot{display:none}
+  details.more{margin:6px 0 2px}details.more summary{cursor:pointer;font-size:12.5px;color:rgba(255,255,255,.7);padding:4px 0;list-style:none}
+  details.more summary::-webkit-details-marker{display:none}details.more summary:before{content:"▸ ";color:rgba(255,255,255,.45)}details.more[open] summary:before{content:"▾ "}
+  .ctl label{min-width:58px}.ctl output{min-width:38px;text-align:right;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.85)}
+  button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid #ffb17a;outline-offset:2px}
+  #tourBar{position:absolute;left:48px;bottom:calc(var(--cb) + 14px);width:min(500px,calc(100% - 96px));display:none;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(8,10,14,.62);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.1);z-index:6}
+  .touring #tourBar{display:flex}.touring #title{bottom:150px}
+  #tourSeek{flex:1;accent-color:#ff7a2a;min-width:80px}
+  #tourTime{font-size:12px;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums;white-space:nowrap}
+  #tourBar .btn{flex:none;padding:7px 10px}
+  #toast{position:absolute;left:50%;top:22px;transform:translate(-50%,-12px);opacity:0;pointer-events:none;padding:10px 14px;border-radius:12px;background:rgba(14,17,22,.92);border:1px solid rgba(255,255,255,.12);font-size:13px;color:#fff;transition:opacity .2s,transform .2s;z-index:30;max-width:min(560px,calc(100% - 32px))}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #bootError{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#06080a;z-index:40}
+  .gate .err{color:#ffb3a1;background:rgba(255,90,60,.12);border:1px solid rgba(255,90,60,.35);border-radius:10px;padding:9px 11px;font-size:12.5px}
+  .gate a{color:#ffb17a}
+  .render #panel,.touring #panel,.render #keyGate,.render #loading,.render #tourBar,.render #toast{display:none!important}
+  #card{pointer-events:none}
+  .render #card{left:48px;right:auto}
+  #panel .lede{margin:0 0 12px;font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.6)}
+  .seg{display:flex;gap:6px;margin-bottom:12px}
+  .seg button,.btn{flex:1;appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;font:600 13px Inter,sans-serif;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s}
+  .seg button:hover,.btn:hover{background:rgba(255,255,255,.12)}
+  .seg button[aria-pressed="true"],.btn[aria-pressed="true"]{background:#ff7a2a;border-color:#ff7a2a;color:#120a05}
+  #ovList{display:flex;flex-direction:column;gap:4px;margin:4px 0 12px}
+  .ov{display:grid;grid-template-columns:1fr 70px 64px;align-items:center;gap:10px;appearance:none;border:1px solid transparent;background:transparent;color:#fff;text-align:left;padding:7px 9px;border-radius:10px;cursor:pointer;font:500 13px Inter,sans-serif}
+  .ov:hover{background:rgba(255,255,255,.07)}
+  .ov[aria-current="true"]{background:rgba(255,122,42,.16);border-color:rgba(255,122,42,.5)}
+  .ov .d small{display:block;font-size:11px;color:rgba(255,255,255,.5);font-weight:500}
+  .ov .bar{height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}.ov .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffb17a,#ff5a1f)}
+  .ov .q{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}.ov .q.none{color:rgba(255,255,255,.45);font-weight:500;font-size:11.5px}
+  #stats{display:flex;gap:8px;margin-bottom:12px}#stats div{flex:1;background:rgba(255,255,255,.05);border-radius:10px;padding:8px 10px}#stats b{display:block;font-size:18px;font-family:"Inter Display",Inter,sans-serif;font-weight:600}#stats span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+  .row{display:flex;gap:6px;margin-bottom:8px}.row .btn{flex:1}
+  .ctl{display:flex;align-items:center;gap:10px;font-size:12.5px;color:rgba(255,255,255,.7);margin:8px 0}
+  .ctl select{flex:1;background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:6px 8px;font:500 12.5px Inter,sans-serif}
+  .ctl input[type=range]{flex:1;accent-color:#ff7a2a}
+  #panel .hint{font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.5;margin:8px 0 0}
+  kbd{font:600 10.5px Inter,sans-serif;border:1px solid rgba(255,255,255,.25);border-radius:4px;padding:0 4px;color:rgba(255,255,255,.75)}
+  #keyGate,#loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,6,8,.86);z-index:20}
+  .gate{width:min(460px,calc(100vw - 32px));box-sizing:border-box;padding:28px 30px;border-radius:20px;background:rgba(14,17,22,.95);border:1px solid rgba(255,255,255,.1);color:#fff}
+  .gate h2{margin:0 0 8px;font-family:"Inter Display",Inter,sans-serif;font-size:24px;font-weight:600;letter-spacing:-.02em}
+  .gate p{font-size:13.5px;line-height:1.5;color:rgba(255,255,255,.7);margin:0 0 14px}
+  .gate input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;font:500 14px "Inter",monospace;margin-bottom:10px}
+  .gate .row{margin:0}
+  #loading .gate{text-align:center}#loading .spin{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:#ff7a2a;margin:0 auto 14px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+  @media (max-width:1180px){#card{min-width:0;width:340px;padding:18px 20px}#card .name{font-size:24px}#card .big b{font-size:50px}#card .meta{gap:12px;font-size:13.5px}}
+  @media (max-width:760px){
+    :root{--cb:54px}
+    #brand{left:16px;top:14px;font-size:11px;gap:8px}#brand .dim,#tag{display:none}
+    #card{left:16px;right:16px;top:40px;bottom:auto;width:auto;padding:12px 14px;border-radius:14px}
+    #card .site{font-size:10px;margin-bottom:2px}#card .name{font-size:17px;margin-bottom:4px}#card .big b{font-size:32px}#card .big span{font-size:12.5px}
+    #card .unc{font-size:11.5px;margin-top:2px}#card .meta{gap:10px;margin-top:8px;padding-top:8px;font-size:11px}#card .meta span b{font-size:8.5px}
+    #panel{left:0;right:0;top:auto;bottom:var(--cb);width:auto;max-height:58%;border-radius:18px 18px 0 0;overflow:auto;display:block}
+    #pbody{overflow:visible;-webkit-mask-image:none;mask-image:none}
+    #panel .hint,#panel .lede{display:none}
+    #panel .phead{position:sticky;top:0;z-index:1;background:rgba(10,12,16,.92);border-radius:18px 18px 0 0}
+    #creditbar{height:var(--cb);flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:4px 14px}
+    #srcline{font-size:9.5px}#credits{font-size:9px;white-space:normal;max-width:none;text-align:left}
+    #title{left:16px;right:16px}#title h1{font-size:40px}#title p{font-size:15px}
+    #outro{padding:0 18px}#outro h2{font-size:26px}#outro p{font-size:14.5px}
+    #tourBar{left:12px;right:12px;width:auto}
+  }
+  /* timeline chart (dark surface; palette validated with the dataviz validator) */
+  #chart{--series-1:#3987e5;--series-2:#d95926;--surface:#14171c;--ink-2:rgba(255,255,255,.72);--ink-3:rgba(255,255,255,.45);position:relative;margin:0 0 10px}
+  #chart .lg{display:flex;gap:12px;font-size:11.5px;color:var(--ink-2);margin:0 0 2px}
+  #chart .lg span{display:inline-flex;align-items:center;gap:5px}
+  #chart .lg i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  #chart .lg i.hollow{box-sizing:border-box;border:1.5px solid var(--ink-2)}
+  #chart svg{display:block;overflow:visible}
+  #chart .grid{stroke:rgba(255,255,255,.08);stroke-width:1}#chart .grid.base{stroke:rgba(255,255,255,.22)}
+  #chart .tick{stroke:rgba(255,255,255,.22)}#chart .today{stroke:rgba(255,255,255,.28);stroke-dasharray:2 3}
+  #chart .ax{font:500 10px Inter,sans-serif;fill:var(--ink-3)}
+  #chart .dot{stroke:var(--surface);stroke-width:2;transition:opacity .15s}
+  #chart .dot.hollow{fill:var(--surface);stroke-width:1.75}
+  #chart .dot.dim{opacity:.38}
+  #chart .selring{fill:none;stroke:#fff;stroke-width:1.5}
+  #chart .hit{fill:transparent;cursor:pointer}
+  #chart .tip{position:absolute;pointer-events:none;padding:6px 8px;border-radius:8px;background:rgba(20,23,28,.97);border:1px solid rgba(255,255,255,.14);font-size:11.5px;line-height:1.4;color:rgba(255,255,255,.85);white-space:nowrap;z-index:2}
+  #chart .tip b{color:#fff;font-weight:600}
+  #debug{position:absolute;left:8px;top:8px;font:12px/1.4 monospace;color:#0f0;background:rgba(0,0,0,.5);padding:4px 6px;display:none;white-space:pre}
+</style>
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<div id="grade"></div>
+<div id="brand" class="hud"><i></i><span>Istanbul methane</span><span class="dim">Carbon Mapper · 2024 to 2026</span></div>
+<div id="tag" class="hud">Seen from orbit<small id="tagsub">Tanager-1 and EMIT</small></div>
+<div id="title" class="hud"><h1 id="titleH">Istanbul</h1><p id="titleP">Two landfills. Sixteen methane plumes detected from space.</p></div>
+<div id="card" class="hud">
+  <div class="site" id="cSite">Silivri · European side</div>
+  <div class="name" id="cName">Seymen landfill</div>
+  <div class="big" id="cBig"><b id="cNum">0.0</b><span>t CH₄ / hour</span></div>
+  <div class="unc" id="cUnc">± 0.0 t/h</div>
+  <div class="meta"><span><b>Overpass</b><i id="cDate" style="font-style:normal"></i></span><span><b>Satellite</b><i id="cSat" style="font-style:normal"></i></span><span><b>Wind</b><i id="cWind" style="font-style:normal"></i></span></div>
+</div>
+<div id="outro" class="hud">
+  <h2>Methane is 80 times more warming than CO₂ over 20 years</h2>
+  <p>Silivri peaked at 12.0 tonnes of methane an hour on 25 Nov 2025. Şile at 6.7 t/h on 2 Sep 2025.</p>
+  <p>Plume footprints and rates are measured by Carbon Mapper. Plume heights and motion are modelled for illustration.</p>
+  <div class="cop">COP31 · Antalya · November 2026</div>
+</div>
+<div id="creditbar">
+  <div id="srcline"><b>Methane data</b> Carbon Mapper (Tanager-1, EMIT) · <b>3D map</b> Google Photorealistic 3D Tiles · heights and motion modelled · rendered with CesiumJS</div>
+  <div id="credits"></div>
+</div>
+
+<aside id="panel" aria-label="Plume explorer">
+  <div class="phead"><div class="tt"><h2>Explore the plumes</h2><span id="psub"></span></div><button class="icon" id="panelToggle" aria-expanded="true" aria-controls="pbody pfoot" aria-label="Hide panel" title="Hide panel (h)">⌄</button></div>
+  <div id="pbody">
+    <p class="lede">Carbon Mapper detections over the Seymen and Kömürcüoda landfills, drawn as 3D gas clouds on Google's 3D map. Drag to orbit, scroll to zoom.</p>
+    <div class="seg" role="group" aria-label="Site"><button data-site="silivri" aria-pressed="true">Silivri</button><button data-site="sile" aria-pressed="false">Şile</button></div>
+    <div id="stats"></div>
+    <div id="chart"></div>
+    <div id="ovList" role="list" aria-label="Overpasses"></div>
+  </div>
+  <div id="pfoot">
+    <div class="row"><button class="btn" id="tourBtn">Play tour</button><button class="btn" id="orbitBtn" aria-pressed="true">Auto-orbit</button></div>
+    <div class="row"><button class="btn" id="motionBtn" aria-pressed="true">Motion</button><button class="btn" id="replayBtn">Replay plume</button></div>
+    <div class="ctl"><label for="speed">Speed</label><input id="speed" type="range" min="0.25" max="4" step="0.05" value="1"><output id="speedOut" for="speed">1.0×</output></div>
+    <div class="ctl"><label for="gain">Density</label><input id="gain" type="range" min="0.4" max="2.2" step="0.05" value="1"><output id="gainOut" for="gain">1.0×</output></div>
+    <details class="more"><summary>Display and sharing</summary>
+      <div class="ctl"><label for="lookSel">Look</label><select id="lookSel"><option value="0">Ember (red core)</option><option value="1">Turbo</option><option value="2">Natural</option></select></div>
+      <div class="ctl"><label for="vex">Height</label><input id="vex" type="range" min="1" max="3" step="0.1" value="1.6" aria-describedby="vexNote"><output id="vexOut" for="vex">1.6×</output></div>
+      <p id="vexNote" class="hint" style="margin:-4px 0 6px">Vertical exaggeration of the modelled plume height (1× = physical Gaussian-plume spread).</p>
+      <div class="ctl"><label for="qualSel">Quality</label><select id="qualSel"><option value="auto">Auto</option><option value="high">High</option><option value="low">Battery saver</option></select></div>
+      <div class="row"><button class="btn" id="shareBtn">Copy link</button><button class="btn" id="keyBtn">Change key</button></div>
+    </details>
+    <p class="hint"><kbd>space</kbd> tour · <kbd>↑</kbd><kbd>↓</kbd> overpass · <kbd>1</kbd><kbd>2</kbd> site · <kbd>[</kbd><kbd>]</kbd> speed · <kbd>o</kbd> orbit · <kbd>r</kbd> replay · <kbd>h</kbd> panel. Footprints and rates are measured; heights and motion are modelled.</p>
+  </div>
+</aside>
+<div id="tourBar" role="group" aria-label="Tour controls"><button class="icon" id="tourPlay" aria-label="Pause">❚❚</button><input type="range" id="tourSeek" min="0" max="64" step="0.01" value="0" aria-label="Tour position"><span id="tourTime">0:00 / 1:04</span><button class="btn" id="tourExit">Exit tour</button></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="keyGate"><form class="gate" id="keyForm">
+  <h2>Google 3D Tiles key</h2>
+  <p>This app streams Google Photorealistic 3D Tiles. Paste a Google Maps Platform API key with the Map Tiles API enabled. It is kept in this browser only (localStorage) and sent only to Google's tile servers.</p>
+  <p id="keyErr" class="err" hidden></p>
+  <label for="keyInput" class="sr" style="position:absolute;left:-9999px">Google Maps Platform API key</label>
+  <input id="keyInput" placeholder="AIza..." autocomplete="off" spellcheck="false">
+  <p style="font-size:12px;margin:0 0 12px"><a href="https://developers.google.com/maps/documentation/tile/get-api-key" target="_blank" rel="noopener">How to get a key</a> (Map Tiles API, free monthly tier).</p>
+  <div class="row"><button class="btn" type="submit" aria-pressed="true">Use key</button><button class="btn" type="button" id="keySkip">Continue without 3D tiles</button></div>
+</form></div>
+<div id="loading"><div class="gate"><div class="spin"></div><p id="loadMsg">Loading…</p></div></div>
+<div id="bootError"><div class="gate"><h2>Can't start the 3D view</h2><p></p></div></div>
+<div id="debug"></div>
+<script>
+(function () {
+  var CDN = 'https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/';
+  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !/[?&]cdn=1/.test(location.search);
+  function css(href) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); }
+  function js(src) { return new Promise(function (res, rej) { var s = document.createElement('script'); s.src = src; s.async = false; s.onload = res; s.onerror = function () { rej(new Error('Could not load ' + src)); }; document.body.appendChild(s); }); }
+  function cesium(base) { window.CESIUM_BASE_URL = base; return js(base + 'Cesium.js').then(function () { css(base + 'Widgets/widgets.css'); }); }
+  window.__boot = (local ? cesium('cesium/').catch(function () { return cesium(CDN); }) : cesium(CDN))
+    .then(function () { return js('config.js').catch(function () {}); })
+    .then(function () { return js('plumes.js'); })
+    .then(function () { return js('app.js'); })
+    .catch(function (e) { var el = document.getElementById('bootError'); el.style.display = 'flex'; el.querySelector('p').textContent = (e && e.message ? e.message : String(e)) + '. Check your connection and reload.'; });
+})();
+</script>
+</body>
+</html>
