@@ -26,6 +26,12 @@ on small fallback imagery.
 Deploy: the `web/` folder is the whole site. `netlify.toml` and `vercel.json` point at it, or drag the folder
 onto app.netlify.com/drop.
 
+GitHub Pages: `.github/workflows/pages.yml` publishes `web/` on every push to `main` that touches it (or run it
+by hand from the Actions tab). One-time setup: Settings > Pages > Source: GitHub Actions. Optionally add a
+repository secret `GMAPS_PUBLIC_KEY` holding a browser key restricted to `https://asturksever.github.io/*`;
+the workflow writes it into `config.js` at deploy time so visitors are not asked for a key. The site is served
+at https://asturksever.github.io/istanbul-methane/.
+
 ### Features
 
 - Site switch, overpass list and a timeline of every detection from Jun 2024 to today (withheld rates as hollow
