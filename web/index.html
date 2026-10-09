@@ -6,6 +6,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Carbon Mapper methane plumes over Istanbul's Seymen (Silivri) and Kömürcüoda (Şile) landfills, as 3D gas clouds on Google Photorealistic 3D Tiles.">
 <meta name="theme-color" content="#06080a">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://tile.googleapis.com">
+<link rel="preconnect" href="https://s3.amazonaws.com" crossorigin>
+<link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
+<link rel="preload" href="data/basemap-silivri.webp" as="image">
+<script>
+  // before first paint: renderer mode hides the app chrome; the loading poster follows the deep-linked site
+  (function (q, c) { if (/[?&]mode=render/.test(q)) c.add('render'); if (/[?&]site=sile/.test(q)) c.add('start-sile'); })(location.search, document.documentElement.classList);
+</script>
 <style>
   [hidden]{display:none!important}
   html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#06080a;font-family:Inter,"Inter Display",system-ui,sans-serif;color:#fff}
@@ -25,7 +34,7 @@
   #title{left:48px;bottom:88px;max-width:1000px}
   #title h1{margin:0 0 10px;font-family:"Inter Display",Inter,sans-serif;font-weight:600;font-size:72px;line-height:1.02;letter-spacing:-.025em;text-shadow:0 2px 24px rgba(0,0,0,.55)}
   #title p{margin:0;font-size:24px;font-weight:400;color:rgba(255,255,255,.82);letter-spacing:-.005em;text-shadow:0 1px 12px rgba(0,0,0,.6)}
-  #card{left:auto;right:48px;bottom:84px;padding:22px 26px 20px;border-radius:18px;background:rgba(8,10,14,.52);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.1);min-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  #card{left:auto;right:48px;top:96px;padding:22px 26px 20px;border-radius:18px;background:rgba(8,10,14,.52);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.1);min-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
   #card .site{font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:600;margin-bottom:6px}
   #card .name{font-family:"Inter Display",Inter,sans-serif;font-size:30px;font-weight:600;letter-spacing:-.02em;margin-bottom:14px}
   #card .big{display:flex;align-items:baseline;gap:10px}
@@ -83,7 +92,7 @@
   .gate a{color:#ffb17a}
   .render #panel,.touring #panel,.render #keyGate,.render #loading,.render #tourBar,.render #toast{display:none!important}
   #card{pointer-events:none}
-  .render #card{left:48px;right:auto}
+  .render #card{left:48px;right:auto;top:auto;bottom:84px}
   #panel .lede{margin:0 0 12px;font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.6)}
   .seg{display:flex;gap:6px;margin-bottom:12px}
   .seg button,.btn{flex:1;appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;font:600 13px Inter,sans-serif;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s}
@@ -104,12 +113,31 @@
   #panel .hint{font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.5;margin:8px 0 0}
   kbd{font:600 10.5px Inter,sans-serif;border:1px solid rgba(255,255,255,.25);border-radius:4px;padding:0 4px;color:rgba(255,255,255,.75)}
   #keyGate,#loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,6,8,.86);z-index:20}
+  #loading{display:flex;background:#06080a;overflow:hidden;transition:opacity .6s ease}
+  #loading::before{content:"";position:absolute;inset:-60px;background:url(data/basemap-silivri.webp) center/cover;filter:blur(16px) saturate(.85) brightness(.6);transform:scale(1.04);animation:drift 24s ease-in-out infinite alternate}
+  .start-sile #loading::before{background-image:url(data/basemap-sile.webp)}
+  #loading::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 46%,rgba(255,122,42,.10),transparent 55%),linear-gradient(rgba(4,6,8,.35),rgba(4,6,8,.75))}
+  @keyframes drift{to{transform:scale(1.12) translate(-1.5%,1%)}}
+  #loading.soft{background:rgba(4,6,8,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  #loading.soft::before,#loading.soft::after,#loading.soft .lt,#loading.soft .ls,#loading.soft .slow{display:none}
+  #loading.out{opacity:0;pointer-events:none}
+  #loading .gate{position:relative;z-index:1;text-align:left;background:rgba(10,12,16,.62);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);width:min(420px,calc(100vw - 32px))}
+  #loading .lt{display:flex;align-items:center;gap:12px;font-size:13px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;margin-bottom:10px}
+  #loading .lt i{width:9px;height:9px;border-radius:50%;background:#ff7a2a;box-shadow:0 0 16px 4px rgba(255,122,42,.55);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{box-shadow:0 0 6px 1px rgba(255,122,42,.35)}}
+  #loading .ls{font-size:14px;line-height:1.5;color:rgba(255,255,255,.72);margin:0 0 18px}
+  #loading .bar{height:4px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden}
+  #loading .bar i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#ff7a2a,#ffb17a);transition:width .5s ease}
+  #loading #loadMsg{font-size:12.5px;color:rgba(255,255,255,.6);margin:10px 0 0;min-height:1.5em}
+  #loading .slow{font-size:12px;color:rgba(255,255,255,.45);margin:0;max-height:0;overflow:hidden;opacity:0;transition:opacity .6s,max-height .6s,margin .6s}
+  #loading.slowish .slow{opacity:1;max-height:3em;margin-top:6px}
+  @media (prefers-reduced-motion:reduce){#loading::before,#loading .lt i{animation:none}}
   .gate{width:min(460px,calc(100vw - 32px));box-sizing:border-box;padding:28px 30px;border-radius:20px;background:rgba(14,17,22,.95);border:1px solid rgba(255,255,255,.1);color:#fff}
   .gate h2{margin:0 0 8px;font-family:"Inter Display",Inter,sans-serif;font-size:24px;font-weight:600;letter-spacing:-.02em}
   .gate p{font-size:13.5px;line-height:1.5;color:rgba(255,255,255,.7);margin:0 0 14px}
   .gate input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;font:500 14px "Inter",monospace;margin-bottom:10px}
   .gate .row{margin:0}
-  #loading .gate{text-align:center}#loading .spin{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:#ff7a2a;margin:0 auto 14px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+  #loading .spin{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:#ff7a2a;margin:0 auto 14px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
   @media (max-width:1180px){#card{min-width:0;width:340px;padding:18px 20px}#card .name{font-size:24px}#card .big b{font-size:50px}#card .meta{gap:12px;font-size:13.5px}}
   @media (max-width:760px){
     :root{--cb:54px}
@@ -192,7 +220,7 @@
       <div class="ctl"><label for="qualSel">Quality</label><select id="qualSel"><option value="auto">Auto</option><option value="high">High</option><option value="low">Battery saver</option></select></div>
       <div class="row"><button class="btn" id="shareBtn">Copy link</button><button class="btn" id="baseBtn">Google 3D Tiles</button><button class="btn" id="keyBtn" hidden>Change key</button></div>
     </details>
-    <p class="hint"><kbd>space</kbd> tour · <kbd>↑</kbd><kbd>↓</kbd> overpass · <kbd>1</kbd><kbd>2</kbd> site · <kbd>[</kbd><kbd>]</kbd> speed · <kbd>o</kbd> orbit · <kbd>r</kbd> replay · <kbd>h</kbd> panel. Footprints and rates are measured; heights and motion are modelled.</p>
+    <p class="hint"><kbd>space</kbd> tour · <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> pan · <kbd>c</kbd> re-centre · <kbd>j</kbd><kbd>k</kbd> overpass · <kbd>1</kbd><kbd>2</kbd> site · <kbd>[</kbd><kbd>]</kbd> speed · <kbd>o</kbd> orbit · <kbd>r</kbd> replay · <kbd>h</kbd> panel. Footprints and rates are measured; heights and motion are modelled.</p>
   </div>
 </aside>
 <div id="tourBar" role="group" aria-label="Tour controls"><button class="icon" id="tourPlay" aria-label="Pause">❚❚</button><input type="range" id="tourSeek" min="0" max="64" step="0.01" value="0" aria-label="Tour position"><span id="tourTime">0:00 / 1:04</span><button class="btn" id="tourExit">Exit tour</button></div>
@@ -206,7 +234,13 @@
   <p style="font-size:12px;margin:0 0 12px"><a href="https://developers.google.com/maps/documentation/tile/get-api-key" target="_blank" rel="noopener">How to get a key</a> (Map Tiles API, free monthly tier).</p>
   <div class="row"><button class="btn" type="submit" aria-pressed="true">Use key</button><button class="btn" type="button" id="keySkip">Use the open map</button></div>
 </form></div>
-<div id="loading"><div class="gate"><div class="spin"></div><p id="loadMsg">Loading…</p></div></div>
+<div id="loading" role="status" aria-live="polite"><div class="gate">
+  <div class="lt"><i></i>Istanbul methane</div>
+  <p class="ls">Methane plumes over Istanbul's two big landfills, as measured from orbit by Carbon Mapper, 2024 to 2026.</p>
+  <div class="bar" aria-hidden="true"><i id="loadBar"></i></div>
+  <p id="loadMsg">Loading the 3D engine</p>
+  <p class="slow">First visit downloads the 3D engine and map tiles; after that it is cached.</p>
+</div></div>
 <div id="bootError"><div class="gate"><h2>Can't start the 3D view</h2><p></p></div></div>
 <div id="debug"></div>
 <script>
@@ -216,11 +250,24 @@
   function css(href) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); }
   function js(src) { return new Promise(function (res, rej) { var s = document.createElement('script'); s.src = src; s.async = false; s.onload = res; s.onerror = function () { rej(new Error('Could not load ' + src)); }; document.body.appendChild(s); }); }
   function cesium(base) { window.CESIUM_BASE_URL = base; return js(base + 'Cesium.js').then(function () { css(base + 'Widgets/widgets.css'); }); }
-  window.__boot = (local ? cesium('cesium/').catch(function () { return cesium(CDN); }) : cesium(CDN))
-    .then(function () { return js('config.js').catch(function () {}); })
-    .then(function () { return js('plumes.js'); })
-    .then(function () { return js('app.js'); })
-    .catch(function (e) { var el = document.getElementById('bootError'); el.style.display = 'flex'; el.querySelector('p').textContent = (e && e.message ? e.message : String(e)) + '. Check your connection and reload.'; });
+  // progress for the slowest step, the engine download: creep the bar towards 30% while it streams
+  var bar = document.getElementById('loadBar'); if (bar) { bar.style.transition = 'width 6s cubic-bezier(.2,.7,.3,1)'; requestAnimationFrame(function () { bar.style.width = '30%'; }); }
+  setTimeout(function () { var l = document.getElementById('loading'); if (l) l.classList.add('slowish'); }, 9000);
+  var app = function () { if (bar) bar.style.transition = ''; };
+  function fail(e) { var el = document.getElementById('bootError'); el.style.display = 'flex'; el.querySelector('p').textContent = (e && e.message ? e.message : String(e)) + '. Check your connection and reload.'; }
+  if (local) {
+    window.__boot = cesium('cesium/').catch(function () { return cesium(CDN); })
+      .then(function () { return js('config.js').catch(function () {}); })
+      .then(function () { return js('plumes.js'); })
+      .then(function () { app(); return js('app.js'); })
+      .catch(fail);
+  } else {
+    // all four download in parallel; async=false keeps them executing in order
+    window.CESIUM_BASE_URL = CDN; css(CDN + 'Widgets/widgets.css');
+    var eng = js(CDN + 'Cesium.js'); js('config.js').catch(function () {}); var pl = js('plumes.js'); var ap = js('app.js');
+    eng.then(app);
+    window.__boot = Promise.all([eng, pl, ap]).catch(fail);
+  }
 })();
 </script>
 </body>

@@ -51,8 +51,11 @@ at https://asturksever.github.io/istanbul-methane/.
 - Display settings: Look (Ember with red core, Turbo, Natural), Height (vertical exaggeration; 1x is the
   physical spread), Quality (Auto adapts only once the map has settled, never below 75% resolution).
 - Play tour: the 64 s video choreography with play/pause, scrubber and chapters.
-- Shareable links (`?site=&ov=&look=`), Copy link, keyboard shortcuts (space tour, up/down overpass, 1/2 site,
-  [ ] speed, o orbit, r replay, h panel).
+- Shareable links (`?site=&ov=&look=`), Copy link, keyboard shortcuts (arrow keys pan the map, c re-centre,
+  j/k overpass, space tour, 1/2 site, [ ] speed, o orbit, r replay, h panel).
+- Fast first load: the engine, data and app code download in parallel, only the opening site's terrain is read
+  before the map appears (the other site's on first visit, with coarser tiles than the video renderer), and a
+  loading screen with progress shows from the first paint.
 - Phone layout (bottom sheet), focus styles, reduced-motion support, clear errors for a rejected or restricted
   key, WebGL 2 check.
 

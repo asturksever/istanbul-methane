@@ -14,6 +14,7 @@ const VOLSCALE = +(Q.get('volscale') || 0.5);
 const LOOK = Q.get('look') || 'ember';
 const VEX = +(Q.get('vex') || 1.6);                 // vertical exaggeration of the modelled plume height
 const DEBUG = +(Q.get('debug') || 0);
+let loadP = 0;                                      // loading-screen progress, 0..1 (only ever increases)
 const $ = id => document.getElementById(id);
 (function webglCheck() {
   let ok = false; try { ok = !!document.createElement('canvas').getContext('webgl2'); } catch (e) {}
@@ -86,7 +87,8 @@ for (const k in SITES) {
     merc: new C.Cartesian4(w * Math.PI / 180, e * Math.PI / 180, my(s), my(n)) };
 }
 // open on Silivri straight away (or the deep-linked site) instead of Cesium's default whole-globe view
-if (LIVE) { const F0 = FRAME[Q.get('site') === 'sile' ? 'sile' : 'silivri'];
+const START_SITE = Q.get('site') === 'sile' ? 'sile' : 'silivri';
+if (LIVE) { const F0 = FRAME[START_SITE];
   camera.setView({ destination: C.Cartesian3.fromDegrees(F0.lon0, F0.lat0, 9000), orientation: { heading: 0, pitch: -Math.PI / 2 + 1e-3, roll: 0 } }); }
 
 /* ---------------- plume column texture ---------------- */
@@ -420,15 +422,23 @@ async function setupBase() {
   const mn = $('mapName'); if (mn) mn.textContent = useGoogle ? "Google's photorealistic 3D map" : 'open 3D satellite map';
   const src = $('srcline'); if (src) src.innerHTML = '<b>Methane data</b> Carbon Mapper (Tanager-1, EMIT) · <b>3D map</b> ' + (useGoogle ? 'Google Photorealistic 3D Tiles' : 'Esri World Imagery on open terrain (no key)') + ' · heights and motion modelled · rendered with CesiumJS';
 }
-async function sampleTerrain(site) {
-  if (LIVE) setLoading(`Reading terrain under ${SITES[site].full}…`);
+/* The live app samples with 4x coarser tiles than the video renderer: a 48 x 48 height grid (about 230 m spacing)
+   does not need full-detail meshes, and coarse tiles load several times faster. */
+const TSSE = +(Q.get('tsse') || (LIVE ? 1 : 0.25));
+async function sampleTerrain(site, p0 = 0.45, p1 = 0.95) {
+  if (LIVE) setLoading(`Reading the terrain under ${SITES[site].full}`, p0);
   const [w, so, e, n] = SITES[site].b; const F = FRAME[site]; const N = 48;
   // look straight down from 9 km at quarter resolution, let the tiles load, then read heights from the depth buffer
   setPose({ lon: F.lon0, lat: F.lat0, h: 9000, heading: 0, pitch: -89.9 });
-  viewer.resolutionScale = 0.25; viewer.resize(); if (tileset) tileset.maximumScreenSpaceError = SSE * 0.25;
+  viewer.resolutionScale = 0.25; viewer.resize(); if (tileset) tileset.maximumScreenSpaceError = SSE * TSSE;
   viewer.render(); viewer.render();
-  let k = 0; while (!tilesLoaded() && k < 500) { await sleep(40); viewer.render(); k++; }
+  let k = 0, peak = 1;
+  while (!tilesLoaded() && k < 500) {
+    await sleep(40); viewer.render(); k++;
+    if (LIVE) { const left = pendingTiles(); peak = Math.max(peak, left); setLoading(null, p0 + (p1 - p0) * Math.min(0.97, 0.8 * Math.max(0, 1 - left / peak) + 0.2 * Math.min(1, k / 250))); }
+  }
   viewer.render();
+  const tPick = performance.now();
   const hs = new Float32Array(N * N).fill(NaN); let valid = 0;
   const win = new C.Cartesian2();
   for (let j = 0; j < N; j++) { const v = (j + 0.5) / N; const m = my(so) + (my(n) - my(so)) * v; const lat = (2 * Math.atan(Math.exp(m)) - Math.PI / 2) * 180 / Math.PI;
@@ -447,7 +457,12 @@ async function sampleTerrain(site) {
   g.putImageData(img, 0, 0);
   const sIdx = (lon, lat) => { const u = (lon - w) / (e - w), v = (my(lat) - my(so)) / (my(n) - my(so)); return Math.min(N - 1, Math.max(0, Math.floor(v * N))) * N + Math.min(N - 1, Math.max(0, Math.floor(u * N))); };
   TERRAIN[site] = { canvas: c, hmin, hmax, hAt: (lon, lat) => sm[sIdx(lon, lat)], valid, iters: k };
-  console.log('terrain ' + site + ' ' + JSON.stringify({ hmin: Math.round(hmin), hmax: Math.round(hmax), valid, of: N * N, iters: k, loaded: tilesLoaded() }));
+  console.log('terrain ' + site + ' ' + JSON.stringify({ hmin: Math.round(hmin), hmax: Math.round(hmax), valid, of: N * N, iters: k, loaded: tilesLoaded(), pickMs: Math.round(performance.now() - tPick) }));
+}
+let globeQueue = 0; globe.tileLoadProgressEvent.addEventListener(n => { globeQueue = n; });
+function pendingTiles() {
+  if (useGoogle) return tileset ? tileset.statistics.numberOfPendingRequests + tileset.statistics.numberOfTilesProcessing : 0;
+  return globeQueue;
 }
 function tilesLoaded() { return (useGoogle ? (tileset && tileset.tilesLoaded) : globe.tilesLoaded); }
 
@@ -654,7 +669,7 @@ function applyTime(t) {
 /* ---------------- frame API ---------------- */
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 window.__ready = (async () => {
-  if (LIVE) setLoading(useGoogle ? 'Connecting to Google Photorealistic 3D Tiles…' : 'Loading the open 3D map (satellite imagery and terrain)…');
+  if (LIVE) setLoading(useGoogle ? 'Connecting to Google Photorealistic 3D Tiles' : 'Connecting to the open 3D map', 0.38);
   try { await setupBase(); }
   catch (e) {
     if (!LIVE) throw e;
@@ -663,9 +678,9 @@ window.__ready = (async () => {
     await new Promise(() => {});
   }
   if (Q.get('terrain') !== '0') {
-    // the start site goes last, so the view behind the loading screen ends where the app opens
-    const first = LIVE && Q.get('site') === 'sile' ? 'sile' : 'silivri';
-    for (const site of !LIVE || first === 'sile' ? ['silivri', 'sile'] : ['sile', 'silivri']) await sampleTerrain(site);
+    // the live app reads only the site it opens on; the other site's terrain is read the first time it is visited
+    if (LIVE) await sampleTerrain(START_SITE);
+    else for (const site of ['silivri', 'sile']) await sampleTerrain(site);
     viewer.resolutionScale = 1; viewer.resize(); if (tileset) tileset.maximumScreenSpaceError = SSE; viewer.render();
   }
   applyOverpass(sceneAt('silivri', SHOW.silivri[0]));
@@ -700,14 +715,38 @@ window.__bench = function (n = 3) { const out = {}; for (const skip of [1, 0]) {
 window.__time = async function (t) { return window.__frame(Math.round(t * FPS)); };
 
 /* ================= interactive app ================= */
-function setLoading(msg) { const el = $('loading'); if (!el) return; el.style.display = 'flex'; $('loadMsg').textContent = msg; }
+function setLoading(msg, p) {
+  const el = $('loading'); if (!el) return;
+  if (el.style.display === 'none' || el.classList.contains('out')) { el.classList.remove('out'); el.style.display = 'flex'; }
+  if (msg != null) $('loadMsg').textContent = msg;
+  if (p != null && p > loadP) { loadP = p; $('loadBar').style.width = (p * 100).toFixed(1) + '%'; }
+}
+function hideLoading() {
+  const el = $('loading'); if (!el) return;
+  loadP = 1; $('loadBar').style.width = '100%';
+  el.classList.add('out'); clearTimeout(hideLoading._t);
+  hideLoading._t = setTimeout(() => { if (el.classList.contains('out')) { el.style.display = 'none'; el.classList.remove('soft'); loadP = 0; $('loadBar').style.width = '0%'; } }, 650);
+}
+// terrain for a site the live app has not visited yet: a short, see-through loading step
+const terrainJobs = {};
+function ensureTerrain(site) {
+  if (TERRAIN[site] || Q.get('terrain') === '0') return Promise.resolve();
+  if (!terrainJobs[site]) terrainJobs[site] = (async () => {
+    LIVESTATE.busy = true; LIVESTATE.flying = true; camera.cancelFlight(); camera.lookAtTransform(C.Matrix4.IDENTITY);
+    $('loading').classList.add('soft'); loadP = 0;
+    await sampleTerrain(site, 0.05, 0.95);
+    viewer.resolutionScale = LIVESTATE.scale; viewer.resize(); if (tileset) tileset.maximumScreenSpaceError = SSE;
+    LIVESTATE.busy = false; LIVESTATE.flying = false; hideLoading();
+  })();
+  return terrainJobs[site];
+}
 function showKeyGate(err) { $('loading').style.display = 'none'; $('keyGate').style.display = 'flex'; $('keyErr').textContent = err || ''; $('keyErr').hidden = !err; setTimeout(() => $('keyInput').focus(), 50); }
 function toast(msg, ms = 2600) { const el = $('toast'); if (!el) return; el.textContent = msg; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), ms); }
 const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const LIVESTATE = {
   tour: false, tourT: 0, tourPaused: false, seeking: false,
   orbit: !reduceMotion, motion: !reduceMotion, age: 0, simT: 0, last: null, flying: false,
-  speed: 1, quality: 'auto', steps: STEPS, scale: 1, ema: 1 / 60, lastAdapt: 0, goodRuns: 0, badRuns: 0, frames: 0, fpsT0: 0, fps: 0, liveSince: 0,
+  speed: 1, quality: 'auto', steps: STEPS, scale: 1, ema: 1 / 60, lastAdapt: 0, goodRuns: 0, badRuns: 0, frames: 0, fpsT0: 0, fps: 0, liveSince: 0, busy: false, pan: new Set(),
 };
 const LOOKS = ['ember', 'turbo', 'natural'];
 const lookIndex = v => { const i = LOOKS.indexOf(v === 'smoke' ? 'natural' : v); return Math.max(0, i); };
@@ -721,7 +760,8 @@ function flyToSite(site, duration = 2.6) {
   camera.flyToBoundingSphere(new C.BoundingSphere(tgt, 1), { offset: hpr, duration: reduceMotion ? 0 : duration,
     complete: () => { camera.lookAt(tgt, hpr); LIVESTATE.flying = false; }, cancel: () => { LIVESTATE.flying = false; } });
 }
-function selectOverpass(s, fly) {
+async function selectOverpass(s, fly) {
+  if (LIVE && !TERRAIN[s.site]) { await ensureTerrain(s.site); fly = true; }
   const siteChanged = !cur || cur.site !== s.site;
   applyOverpass(s);
   LIVESTATE.age = reduceMotion ? 99 : 0;   // bloom always plays (or is instant); Motion only freezes the drift
@@ -797,9 +837,33 @@ function syncURL() { const u = new URL(shareURL()); for (const k of ['nokey', 'b
 
 /* camera guard: keep the orbit camera above the ground near the target */
 const MIN_UP = 260;
+/* Arrow keys slide the map: up/down move along the view direction, left/right across it, at a speed that
+   scales with the camera's distance so it feels the same zoomed in or out. The camera keeps its angle. */
+const PAN_KEYS = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+function panPivot() {
+  if (!C.Matrix4.equals(camera.transform, C.Matrix4.IDENTITY)) return C.Matrix4.getTranslation(camera.transform, new C.Cartesian3());
+  const c = new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2);
+  return (scene.pickPositionSupported && scene.pickPosition(c)) || camera.pickEllipsoid(c) || targetWC();
+}
+function keyPan(dt) {
+  if (LIVESTATE.flying) { camera.cancelFlight(); LIVESTATE.flying = false; }
+  let fx = 0, fy = 0; for (const k of LIVESTATE.pan) { fx += PAN_KEYS[k][0]; fy += PAN_KEYS[k][1]; }
+  if (!fx && !fy) return;
+  const n = Math.hypot(fx, fy); fx /= n; fy /= n;
+  const pivot = panPivot(); const enu = C.Transforms.eastNorthUpToFixedFrame(pivot);
+  const toLocal = C.Matrix4.inverseTransformation(enu, new C.Matrix4());
+  const rel = C.Matrix4.multiplyByPoint(toLocal, camera.positionWC, new C.Cartesian3());   // camera in the pivot's ENU frame
+  const range = C.Cartesian3.magnitude(rel); if (!(range > 1)) return;
+  const heading = Math.atan2(-rel.x, -rel.y);                                              // direction the camera looks
+  const pitch = Math.asin(Math.max(-1, Math.min(1, -rel.z / range)));
+  const step = Math.min(range, 30000) * 0.55 * dt;
+  const dE = (fy * Math.sin(heading) + fx * Math.cos(heading)) * step, dN = (fy * Math.cos(heading) - fx * Math.sin(heading)) * step;
+  const next = C.Matrix4.multiplyByPoint(enu, new C.Cartesian3(dE, dN, 0), new C.Cartesian3());
+  camera.lookAt(next, new C.HeadingPitchRange(heading, pitch, range));
+}
 function guardCamera() {
   if (LIVESTATE.flying || LIVESTATE.tour || C.Matrix4.equals(camera.transform, C.Matrix4.IDENTITY)) return;
-  const p = camera.position; if (p.z < MIN_UP) camera.lookAt(targetWC(), new C.Cartesian3(p.x, p.y, MIN_UP));
+  const p = camera.position; if (p.z < MIN_UP) camera.lookAt(C.Matrix4.getTranslation(camera.transform, new C.Cartesian3()), new C.Cartesian3(p.x, p.y, MIN_UP));
 }
 
 /* adaptive quality: raymarch steps first, then render resolution, with hysteresis */
@@ -849,6 +913,7 @@ function liveTick() {
   if (cur && cur.q != null) $('cNum').textContent = (cur.q * ease((age - 0.2) / 1.6) / 1000).toFixed(1);
   setRingAlpha(LIVESTATE.motion ? 0.55 + 0.35 * Math.sin(LIVESTATE.simT * 2.6) : 0.75);
   if (LIVESTATE.orbit && !LIVESTATE.flying && !C.Matrix4.equals(camera.transform, C.Matrix4.IDENTITY)) camera.rotateRight(-0.045 * dt);
+  if (LIVESTATE.pan.size && !LIVESTATE.busy) keyPan(dt);
   guardCamera();
   updateCameraUniforms(viewer.clock.currentTime);
 }
@@ -859,7 +924,9 @@ function updateTourBar() {
   $('tourTime').textContent = `${fmtClock(LIVESTATE.tourT)} / ${fmtClock(T.total)} · ${chapterAt(LIVESTATE.tourT)}`;
   $('tourPlay').textContent = LIVESTATE.tourPaused ? '▶' : '❚❚'; $('tourPlay').setAttribute('aria-label', LIVESTATE.tourPaused ? 'Play' : 'Pause');
 }
-function startTour() {
+async function startTour() {
+  if (LIVESTATE.busy) return;
+  for (const site of ['silivri', 'sile']) await ensureTerrain(site);
   camera.cancelFlight(); LIVESTATE.flying = false;
   LIVESTATE.tour = true; LIVESTATE.tourT = 0; LIVESTATE.tourPaused = false;
   S.poseSilEnd = S.poseSileStart = S.poseSileEnd = null;
@@ -880,7 +947,7 @@ function togglePanel(force) {
 }
 
 function startLive() {
-  $('loading').style.display = 'none';
+  hideLoading();
   LIVESTATE.liveSince = performance.now();
   setHud({ brand: 1, tag: 1, title: 0, card: 1, outro: 0, num: 1 });
   const want = Q.get('site') && Q.get('ov') ? sceneAt(Q.get('site'), Q.get('ov')) : null;
@@ -929,9 +996,13 @@ function startLive() {
     else if (e.key === 'h') togglePanel();
     else if (e.key === '[' || e.key === ']') { const sp = $('speed'); sp.value = String(Math.max(0.25, Math.min(4, +sp.value * (e.key === ']' ? 1.25 : 0.8)))); sp.dispatchEvent(new Event('input')); toast(`Speed ${$('speedOut').textContent}`, 900); }
     else if (e.key === '1' || e.key === '2') { const site = e.key === '1' ? 'silivri' : 'sile'; if (S.site !== site) selectOverpass(peakOf(site), true); }
-    else if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); stepOverpass(1); }
-    else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); stepOverpass(-1); }
+    else if (e.key === 'j') stepOverpass(1);
+    else if (e.key === 'k') stepOverpass(-1);
+    else if (e.key === 'c') { LIVESTATE.pan.clear(); flyToSite(S.site, 1.4); }
+    else if (PAN_KEYS[e.key]) { e.preventDefault(); LIVESTATE.pan.add(e.key); stopOrbit(); }
   });
+  document.addEventListener('keyup', e => { LIVESTATE.pan.delete(e.key); });
+  window.addEventListener('blur', () => LIVESTATE.pan.clear());
   document.addEventListener('visibilitychange', () => { viewer.useDefaultRenderLoop = !document.hidden; LIVESTATE.last = null; });
 }
 if (LIVE) {
