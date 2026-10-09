@@ -6,6 +6,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Carbon Mapper methane plumes over Istanbul's Silivri and Kömürcüoda (Şile) landfills, explorable as 3D gas clouds in the browser.">
 <meta name="theme-color" content="#06080a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Istanbul Methane">
+<meta property="og:title" content="Methane plumes over Istanbul, in 3D">
+<meta property="og:description" content="Every satellite detection over the Silivri and Şile landfills since 2024. Explore it in your browser, no sign-up.">
+<meta property="og:url" content="https://asturksever.github.io/istanbul-methane/">
+<meta property="og:image" content="https://asturksever.github.io/istanbul-methane/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A methane plume drifting from the Silivri landfill near Istanbul, rendered in 3D over satellite imagery">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://tile.googleapis.com">
 <link rel="preconnect" href="https://s3.amazonaws.com" crossorigin>
@@ -13,7 +27,7 @@
 <link rel="preload" href="data/basemap-silivri.webp" as="image">
 <script>
   // before first paint: renderer mode hides the app chrome; the loading poster follows the deep-linked site
-  (function (q, c) { if (/[?&]mode=render/.test(q)) c.add('render'); if (/[?&]site=sile/.test(q)) c.add('start-sile'); })(location.search, document.documentElement.classList);
+  (function (q, c) { if (/[?&]mode=render/.test(q)) c.add('render'); if (/[?&]reel=1/.test(q)) c.add('reel'); if (/[?&]site=sile/.test(q)) c.add('start-sile'); })(location.search, document.documentElement.classList);
 </script>
 <style>
   [hidden]{display:none!important}
@@ -172,6 +186,22 @@
   #chart .hit{fill:transparent;cursor:pointer}
   #chart .tip{position:absolute;pointer-events:none;padding:6px 8px;border-radius:8px;background:rgba(20,23,28,.97);border:1px solid rgba(255,255,255,.14);font-size:11.5px;line-height:1.4;color:rgba(255,255,255,.85);white-space:nowrap;z-index:2}
   #chart .tip b{color:#fff;font-weight:600}
+  /* 9:16 reel: captions inside Instagram's safe area (clear of the top bar, the right-hand buttons and the caption) */
+  #reelcaps{display:none}
+  .reel #reelcaps{display:block}
+  .reel .hud{display:none!important}
+  .rc{position:absolute;left:64px;right:120px;top:300px;opacity:0;will-change:opacity,transform;text-shadow:0 2px 24px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.5)}
+  .rc .k{font-size:27px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:rgba(255,255,255,.82);margin-bottom:14px}
+  .rc .b{font-family:"Inter Display",Inter,sans-serif;font-size:80px;line-height:1.02;font-weight:800;letter-spacing:-.03em}
+  .rc .b em{font-style:normal;color:#ffb17a}
+  .rc .s{font-size:29px;line-height:1.35;color:rgba(255,255,255,.8);margin-top:18px;font-weight:500}
+  .rc .pill{display:inline-block;margin-top:34px;padding:16px 26px;border-radius:999px;background:#ff7a2a;color:#120a04;font-size:32px;font-weight:700;text-shadow:none}
+  .reel #grade{background:linear-gradient(180deg,rgba(4,6,8,.55) 0%,rgba(4,6,8,0) 38%,rgba(4,6,8,0) 70%,rgba(4,6,8,.45) 100%)!important}
+  .reel #creditbar{top:1430px;bottom:auto;height:auto;flex-direction:column;align-items:flex-start;gap:6px;padding:0 64px;background:none}
+  .reel #creditbar{display:block}
+  .reel #srcline{font-size:21px;line-height:1.35;color:rgba(255,255,255,.78);text-shadow:0 1px 6px rgba(0,0,0,.6)}
+  .reel #credits{margin-top:8px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+  .reel #credits{font-size:19px;text-align:left;white-space:normal;max-width:880px}
   #debug{position:absolute;left:8px;top:8px;font:12px/1.4 monospace;color:#0f0;background:rgba(0,0,0,.5);padding:4px 6px;display:none;white-space:pre}
 </style>
 </head>
@@ -193,6 +223,13 @@
   <p>Silivri peaked at 12.0 tonnes of methane an hour on 25 Nov 2025. Şile at 6.7 t/h on 2 Sep 2025.</p>
   <p>Plume footprints and rates are measured by Carbon Mapper. Plume heights and motion are modelled for illustration.</p>
   <div class="cop">COP31 · Antalya · November 2026</div>
+</div>
+<div id="reelcaps" aria-hidden="true">
+  <div class="rc" id="rc1"><div class="b">Invisible to the eye.</div><div class="b" id="rc1b"><em>Visible from space.</em></div></div>
+  <div class="rc" id="rc2"><div class="k">Silivri landfill · Istanbul</div><div class="b"><em>12 tonnes</em> of methane an hour</div><div class="s">Measured by the Tanager-1 satellite, 25 Nov 2025</div></div>
+  <div class="rc" id="rc3"><div class="b">The warming of <em>1.5 million SUVs</em></div><div class="s">UCLA average for Silivri, 7.4 t/h (the Guardian, Oct 2026)</div></div>
+  <div class="rc" id="rc4"><div class="k">Şile landfill · across the Bosphorus</div><div class="b">Another <em>800,000 SUVs</em></div><div class="s">UCLA average for Şile, 4 t/h (the Guardian)</div></div>
+  <div class="rc" id="rc5"><div class="b">Turkey hosts <em>COP31</em> in November.</div><div class="b" id="rc5b" style="opacity:0">Methane cuts top its agenda.</div><div id="rc5c" style="opacity:0"><span class="pill">Explore it in 3D · link in bio</span></div></div>
 </div>
 <div id="creditbar">
   <div id="srcline"><b>Methane data</b> Carbon Mapper (Tanager-1, EMIT) · <b>3D map</b> loading · heights and motion modelled · rendered with CesiumJS</div>

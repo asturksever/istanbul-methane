@@ -32,7 +32,12 @@ ap.add_argument("--bench", action="store_true")
 ap.add_argument("--seglen", type=int, default=270)
 ap.add_argument("--volscale", type=float, default=0.5)
 ap.add_argument("--ws", default="")
+ap.add_argument("--reel", action="store_true", help="9:16 Instagram cut (24 s); implies --w 1080 --h 1920")
 args = ap.parse_args()
+if args.reel:
+    args.w, args.h = 1080, 1920
+    if args.out == "istanbul-methane.mp4":
+        args.out = "istanbul-methane-reel.mp4"
 OUT.mkdir(exist_ok=True)
 
 
@@ -52,7 +57,7 @@ def serve():
 def main():
     from playwright.sync_api import sync_playwright
     port = serve()
-    qs = f"mode=render&fps={args.fps}&sse={args.sse}&steps={args.steps}&volscale={args.volscale}&look={args.look}" + (f"&debug={args.debug}" if args.debug else "") + (f"&ws={args.ws}" if args.ws else "") + (f"&key={args.key}" if args.key else "")
+    qs = f"mode=render&fps={args.fps}&sse={args.sse}&steps={args.steps}&volscale={args.volscale}&look={args.look}" + (f"&debug={args.debug}" if args.debug else "") + (f"&ws={args.ws}" if args.ws else "") + ("&reel=1" if args.reel else "") + (f"&key={args.key}" if args.key else "")
     url = f"http://127.0.0.1:{port}/index.html?{qs}"
     print("mode:", "google 3d tiles" if args.key else "open map (no key)", flush=True)
     with sync_playwright() as p:

@@ -1,0 +1,14 @@
+{
+  "name": "Istanbul Methane",
+  "short_name": "Methane 3D",
+  "description": "Satellite-detected methane plumes over Istanbul's Silivri and Şile landfills, in 3D.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#06080a",
+  "theme_color": "#06080a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

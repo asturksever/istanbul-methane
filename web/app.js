@@ -558,13 +558,18 @@ const SHOW = {
   silivri: ['2025-11-25T09:52', '2026-02-15T10:00', '2026-04-26T10:10'],
   sile:    ['2025-09-02T09:40', '2025-11-04T09:49', '2026-04-12T10:13'],
 };
+const REEL = !LIVE && Q.get('reel') === '1';       // 9:16 Instagram cut, rendered with render.py --reel
 const T = { intro: 7, fly1: 6, hold: 6, fly2: 8, outro: 7 };
 T.silStart = T.intro + T.fly1;                 // 13
 T.silEnd = T.silStart + 3 * T.hold;            // 31
 T.sileStart = T.silEnd + T.fly2;               // 39
 T.sileEnd = T.sileStart + 3 * T.hold;          // 57
 T.total = T.sileEnd + T.outro;                 // 64
-window.__total = T.total; window.__fps = FPS;
+/* Reel: hard cuts between the two sites, each framed from behind the source looking downwind so the plume
+   streams up a portrait frame. Captions use measured overpass rates and the UCLA averages reported by the
+   Guardian (5 Oct 2026). */
+const RT = { sil: 0, sile: 12, out: 18.5, total: 24 };
+window.__total = REEL ? RT.total : T.total; window.__fps = FPS;
 
 const INTRO_A = { lon: 28.905, lat: 40.915, h: 13500, heading: 42, pitch: -31 };
 const INTRO_B = { lon: 28.935, lat: 40.935, h: 12000, heading: 38, pitch: -30 };
@@ -604,7 +609,38 @@ function setHud(h) {
   if (cur && cur.q != null) $('cNum').textContent = (cur.q * h.num / 1000).toFixed(1);
 }
 
+function reelShot(site, lt, dur) {
+  ensureOverpass(site, 0);                           // each site's peak overpass
+  const u = Math.min(1, lt / dur), s = cur, R0 = SITEV[site].range;
+  const heading = (s.wd + 180 + 22 - 44 * easeInOut(u) + 360) % 360;   // behind the source, drifting across
+  const pose = orbitPose(orbitTarget(), heading, lerp(-36, -29, u), lerp(R0 * 1.0, R0 * 0.8, easeInOut(u)), orbitTargetH());
+  return { pose, fade: ease(lt / 0.45), front: 400 + Math.min(1, lt / 2.4) * (S.dmax * 1.3 + 2500), simT: lt * 1.15 };
+}
+function capAlpha(t, a, b) { return Math.min(ease((t - a) / 0.35), 1 - ease((t - (b - 0.3)) / 0.3)); }
+function applyReel(t) {
+  let r;
+  if (t < RT.sile) r = reelShot('silivri', t, RT.sile);
+  else if (t < RT.out) r = reelShot('sile', t - RT.sile, RT.out - RT.sile + 2);
+  else {
+    const lt = t - RT.out, u = lt / (RT.total - RT.out);
+    const a = reelShot('sile', RT.out - RT.sile, RT.out - RT.sile + 2).pose;
+    const far = { lon: a.lon, lat: a.lat, h: a.h + 5200, heading: a.heading + 18, pitch: -48 };
+    r = { pose: lerpPose(a, far, easeInOut(u)), fade: 1 - ease((lt - 2.2) / 2.6), front: 1e6, simT: (RT.out - RT.sile) * 1.15 + lt * 1.15 };
+  }
+  setPose(r.pose);
+  stage.uniforms.u_fade = r.fade; stage.uniforms.u_front = r.front; stage.uniforms.u_time = r.simT;
+  setRingAlpha(0.45 * r.fade);
+  setHud({ brand: 0, tag: 0, title: 0, card: 0, outro: 0, num: 1 });
+  const show = (id, a) => { const el = $(id); el.style.opacity = a; el.style.transform = `translateY(${(1 - a) * 22}px)`; };
+  show('rc1', capAlpha(t, 0.15, 3.0)); $('rc1b').style.opacity = ease((t - 1.2) / 0.35);
+  show('rc2', capAlpha(t, 3.2, 7.4));
+  show('rc3', capAlpha(t, 7.6, 11.9));
+  show('rc4', capAlpha(t, 12.3, 18.4));
+  show('rc5', capAlpha(t, 18.9, RT.total + 1)); $('rc5b').style.opacity = ease((t - 20.2) / 0.35); $('rc5c').style.opacity = ease((t - 21.6) / 0.35);
+  updateCameraUniforms(viewer.clock.currentTime);
+}
 function applyTime(t) {
+  if (REEL) return applyReel(t);
   let plumeFade = 0, front = 0, simT = t, h = { brand: 0, tag: 0, title: 0, card: 0, outro: 0, num: 1 };
   let ringA = 0;
   const siteHold = (site, start) => {
