@@ -26,7 +26,7 @@ if (!LIVE) document.documentElement.classList.add('render');
 
 /* ---------------- data ---------------- */
 const SITES = {
-  silivri: { b: [28.081055, 41.175682, 28.214951, 41.276323], name: 'Silivri', side: 'European side', full: 'Seymen landfill', img: 'data/basemap-silivri.webp' },
+  silivri: { b: [28.081055, 41.175682, 28.214951, 41.276323], name: 'Silivri', side: 'European side', full: 'Silivri landfill', img: 'data/basemap-silivri.webp' },
   sile:    { b: [29.313498, 41.098435, 29.418554, 41.177556], name: 'Şile',    side: 'Asian side',    full: 'Kömürcüoda landfill', img: 'data/basemap-sile.webp' },
 };
 function decode([w, h, s]) { const g = new Int8Array(w * h).fill(-1); let i = 0, k = 0; while (k < s.length) { const c = s[k]; if (c === '.') { i++; k++; } else if (c === '~') { const j = s.indexOf(';', k); i += +s.slice(k + 1, j); k = j + 1; } else { g[i++] = parseInt(c, 16); k++; } } return { w, h, g }; }

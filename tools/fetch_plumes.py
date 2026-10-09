@@ -21,7 +21,7 @@ import urllib.request
 API = "https://api.carbonmapper.org/api/v1/catalog/plumes/annotated"
 SITES = {
     # west, south, east, north
-    "silivri": (28.05, 41.15, 28.25, 41.30),  # Seymen landfill
+    "silivri": (28.05, 41.15, 28.25, 41.30),  # Silivri landfill
     "sile": (29.30, 41.10, 29.42, 41.19),     # Komurcuoda landfill
 }
 ROOT = pathlib.Path(__file__).resolve().parent.parent

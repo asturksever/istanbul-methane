@@ -6,7 +6,7 @@ Carbon Mapper methane plumes over Istanbul's two big landfills, drawn as volumet
 an open satellite map that needs no key, or Google Photorealistic 3D Tiles if you have a key. One static web app does two jobs: an interactive explorer, and (driven frame by frame
 by `render.py`) a cinematic video renderer.
 
-- **Silivri:** Seymen landfill, European side
+- **Silivri:** Silivri landfill, European side
 - **Şile:** Kömürcüoda landfill, Asian side
 
 Data: [Carbon Mapper](https://data.carbonmapper.org) (Tanager-1 and EMIT, Jun 2024 to Apr 2026, 13 overpasses,
