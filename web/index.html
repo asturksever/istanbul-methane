@@ -7,6 +7,7 @@
 <meta name="description" content="Carbon Mapper methane plumes over Istanbul's Seymen (Silivri) and Kömürcüoda (Şile) landfills, as 3D gas clouds on Google Photorealistic 3D Tiles.">
 <meta name="theme-color" content="#06080a">
 <style>
+  [hidden]{display:none!important}
   html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#06080a;font-family:Inter,"Inter Display",system-ui,sans-serif;color:#fff}
   #cesiumContainer{position:absolute;inset:0}
   .cesium-widget canvas{width:100%;height:100%}
@@ -166,14 +167,14 @@
   <div class="cop">COP31 · Antalya · November 2026</div>
 </div>
 <div id="creditbar">
-  <div id="srcline"><b>Methane data</b> Carbon Mapper (Tanager-1, EMIT) · <b>3D map</b> Google Photorealistic 3D Tiles · heights and motion modelled · rendered with CesiumJS</div>
+  <div id="srcline"><b>Methane data</b> Carbon Mapper (Tanager-1, EMIT) · <b>3D map</b> loading · heights and motion modelled · rendered with CesiumJS</div>
   <div id="credits"></div>
 </div>
 
 <aside id="panel" aria-label="Plume explorer">
   <div class="phead"><div class="tt"><h2>Explore the plumes</h2><span id="psub"></span></div><button class="icon" id="panelToggle" aria-expanded="true" aria-controls="pbody pfoot" aria-label="Hide panel" title="Hide panel (h)">⌄</button></div>
   <div id="pbody">
-    <p class="lede">Carbon Mapper detections over the Seymen and Kömürcüoda landfills, drawn as 3D gas clouds on Google's 3D map. Drag to orbit, scroll to zoom.</p>
+    <p class="lede">Carbon Mapper detections over the Seymen and Kömürcüoda landfills, drawn as 3D gas clouds on a <span id="mapName">3D map</span>. Drag to orbit, scroll to zoom.</p>
     <div class="seg" role="group" aria-label="Site"><button data-site="silivri" aria-pressed="true">Silivri</button><button data-site="sile" aria-pressed="false">Şile</button></div>
     <div id="stats"></div>
     <div id="chart"></div>
@@ -189,7 +190,7 @@
       <div class="ctl"><label for="vex">Height</label><input id="vex" type="range" min="1" max="3" step="0.1" value="1.6" aria-describedby="vexNote"><output id="vexOut" for="vex">1.6×</output></div>
       <p id="vexNote" class="hint" style="margin:-4px 0 6px">Vertical exaggeration of the modelled plume height (1× = physical Gaussian-plume spread).</p>
       <div class="ctl"><label for="qualSel">Quality</label><select id="qualSel"><option value="auto">Auto</option><option value="high">High</option><option value="low">Battery saver</option></select></div>
-      <div class="row"><button class="btn" id="shareBtn">Copy link</button><button class="btn" id="keyBtn">Change key</button></div>
+      <div class="row"><button class="btn" id="shareBtn">Copy link</button><button class="btn" id="baseBtn">Google 3D Tiles</button><button class="btn" id="keyBtn" hidden>Change key</button></div>
     </details>
     <p class="hint"><kbd>space</kbd> tour · <kbd>↑</kbd><kbd>↓</kbd> overpass · <kbd>1</kbd><kbd>2</kbd> site · <kbd>[</kbd><kbd>]</kbd> speed · <kbd>o</kbd> orbit · <kbd>r</kbd> replay · <kbd>h</kbd> panel. Footprints and rates are measured; heights and motion are modelled.</p>
   </div>
@@ -198,12 +199,12 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="keyGate"><form class="gate" id="keyForm">
   <h2>Google 3D Tiles key</h2>
-  <p>This app streams Google Photorealistic 3D Tiles. Paste a Google Maps Platform API key with the Map Tiles API enabled. It is kept in this browser only (localStorage) and sent only to Google's tile servers.</p>
+  <p>The open map works for everyone with no key. For Google Photorealistic 3D Tiles (buildings and landfill terraces in 3D), paste a Google Maps Platform API key with the Map Tiles API enabled. It is kept in this browser only (localStorage) and sent only to Google's tile servers.</p>
   <p id="keyErr" class="err" hidden></p>
   <label for="keyInput" class="sr" style="position:absolute;left:-9999px">Google Maps Platform API key</label>
   <input id="keyInput" placeholder="AIza..." autocomplete="off" spellcheck="false">
   <p style="font-size:12px;margin:0 0 12px"><a href="https://developers.google.com/maps/documentation/tile/get-api-key" target="_blank" rel="noopener">How to get a key</a> (Map Tiles API, free monthly tier).</p>
-  <div class="row"><button class="btn" type="submit" aria-pressed="true">Use key</button><button class="btn" type="button" id="keySkip">Continue without 3D tiles</button></div>
+  <div class="row"><button class="btn" type="submit" aria-pressed="true">Use key</button><button class="btn" type="button" id="keySkip">Use the open map</button></div>
 </form></div>
 <div id="loading"><div class="gate"><div class="spin"></div><p id="loadMsg">Loading…</p></div></div>
 <div id="bootError"><div class="gate"><h2>Can't start the 3D view</h2><p></p></div></div>

@@ -54,7 +54,7 @@ def main():
     port = serve()
     qs = f"mode=render&fps={args.fps}&sse={args.sse}&steps={args.steps}&volscale={args.volscale}&look={args.look}" + (f"&debug={args.debug}" if args.debug else "") + (f"&ws={args.ws}" if args.ws else "") + (f"&key={args.key}" if args.key else "")
     url = f"http://127.0.0.1:{port}/index.html?{qs}"
-    print("mode:", "google 3d tiles" if args.key else "FALLBACK (no key)", flush=True)
+    print("mode:", "google 3d tiles" if args.key else "open map (no key)", flush=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path="/opt/pw-browsers/chromium", args=[
             "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist",

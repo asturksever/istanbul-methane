@@ -1,14 +1,14 @@
 # Istanbul methane
 
-Carbon Mapper methane plumes over Istanbul's two big landfills, drawn as volumetric 3D gas clouds on Google
-Photorealistic 3D Tiles. One static web app does two jobs: an interactive explorer, and (driven frame by frame
+Carbon Mapper methane plumes over Istanbul's two big landfills, drawn as volumetric 3D gas clouds on a 3D map:
+an open satellite map that needs no key, or Google Photorealistic 3D Tiles if you have a key. One static web app does two jobs: an interactive explorer, and (driven frame by frame
 by `render.py`) a cinematic video renderer.
 
 - **Silivri:** Seymen landfill, European side
 - **Şile:** Kömürcüoda landfill, Asian side
 
 Data: [Carbon Mapper](https://data.carbonmapper.org) (Tanager-1 and EMIT, Jun 2024 to Apr 2026, 13 overpasses,
-16 plumes). 3D map: Google Photorealistic 3D Tiles. Rendering: CesiumJS. Plume footprints and emission rates are
+16 plumes). 3D map: Esri World Imagery on open terrain by default, Google Photorealistic 3D Tiles optionally. Rendering: CesiumJS. Plume footprints and emission rates are
 measured; plume heights, turbulence and motion are modelled for illustration, and the UI says so.
 
 ## Run the app
@@ -18,10 +18,20 @@ cd web && python3 -m http.server 8000     # then open http://localhost:8000
 ```
 
 No build step. CesiumJS loads from jsDelivr. For offline use and for the renderer, `npm install` and link the
-local copy with `ln -s ../node_modules/cesium/Build/Cesium web/cesium`; on localhost the page prefers it. On first load the app asks for a Google Maps Platform API key with the Map
-Tiles API enabled. The key is kept in the browser's localStorage and sent only to tile.googleapis.com. For a
-public deploy, put a key restricted to your domain's HTTP referrer in `web/config.js`. `?nokey=1` runs the app
-on small fallback imagery.
+local copy with `ln -s ../node_modules/cesium/Build/Cesium web/cesium`; on localhost the page prefers it.
+
+Two 3D base maps:
+
+- **Open map (default, no key).** Esri World Imagery draped on open terrain (Mapzen Terrain Tiles on AWS Open
+  Data: SRTM, EU-DEM, GMTED, ETOPO1, decoded in the browser). Anyone with the link can explore. The sea floor is
+  clamped to sea level so the coasts sit flat; bundled crops of the two sites show wherever a world tile fails.
+- **Google Photorealistic 3D Tiles (optional).** Buildings and landfill terraces in full 3D. Click "Google 3D
+  Tiles" in the panel and paste a Google Maps Platform API key with the Map Tiles API enabled. The key is kept in
+  the browser's localStorage and sent only to tile.googleapis.com. For a public deploy, put a key restricted to
+  your domain's HTTP referrer in `web/config.js`; visitors then get Google's tiles by default and can switch to
+  the open map from the panel.
+
+`?base=open` forces the open map even when a key is stored (the old `?nokey=1` still works).
 
 Deploy: the `web/` folder is the whole site. `netlify.toml` and `vercel.json` point at it, or drag the folder
 onto app.netlify.com/drop.
@@ -29,7 +39,8 @@ onto app.netlify.com/drop.
 GitHub Pages: `.github/workflows/pages.yml` publishes `web/` on every push to `main` that touches it (or run it
 by hand from the Actions tab). One-time setup: Settings > Pages > Source: GitHub Actions. Optionally add a
 repository secret `GMAPS_PUBLIC_KEY` holding a browser key restricted to `https://asturksever.github.io/*`;
-the workflow writes it into `config.js` at deploy time so visitors are not asked for a key. The site is served
+the workflow writes it into `config.js` at deploy time so visitors get Google's 3D tiles. Without it, visitors
+get the open map. The site is served
 at https://asturksever.github.io/istanbul-methane/.
 
 ### Features
@@ -82,5 +93,6 @@ version looked much worse at 30 MB than 30 fps. Rendering is resumable: frames a
 
 ## Credits
 
-Methane data: Carbon Mapper. 3D map: Google Photorealistic 3D Tiles (attribution is shown on screen as the Map
-Tiles API terms require). Rendering: CesiumJS.
+Methane data: Carbon Mapper. 3D map: Esri World Imagery (Esri, Maxar, Earthstar Geographics, GIS User
+Community) on Mapzen Terrain Tiles hosted by AWS Open Data, or Google Photorealistic 3D Tiles. The active map's
+attribution is shown on screen. Rendering: CesiumJS.

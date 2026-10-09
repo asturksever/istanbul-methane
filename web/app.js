@@ -5,6 +5,8 @@ const Q = new URLSearchParams(location.search);
 const LIVE = Q.get('mode') !== 'render';            // interactive app unless the renderer drives the page
 let storedKey = ''; try { storedKey = localStorage.getItem('gmaps_key') || ''; } catch (e) {}
 const KEY = Q.get('key') || (LIVE ? (window.PUBLIC_MAPS_KEY || storedKey) : '');
+// base layer: Google Photorealistic 3D Tiles when a key is available, else the open map (Esri imagery on open terrain, no key)
+const FORCE_OPEN = Q.get('base') === 'open' || !!Q.get('nokey');
 const FPS = +(Q.get('fps') || 30);
 const SSE = +(Q.get('sse') || (LIVE ? 10 : 6));
 const STEPS = +(Q.get('steps') || 56);
@@ -337,8 +339,52 @@ function makeRing(lon, lat) {
 }
 function setRingAlpha(a) { if (!ring || !ring.ready) return; const at = ring.getGeometryInstanceAttributes(ringId); if (at) at.color = C.ColorGeometryInstanceAttribute.toValue(new C.Color(1, 0.69, 0.28, a)); }
 
-/* ---------------- Google 3D tiles or fallback ---------------- */
-let tileset = null, useGoogle = !!KEY;
+/* ---------------- base layer: Google 3D tiles, or the open map ---------------- */
+let tileset = null, useGoogle = !!KEY && !FORCE_OPEN;
+/* Open terrain: Mapzen Terrain Tiles on AWS Open Data (terrarium PNG, height = R*256 + G + B/256 - 32768), CORS open, no key.
+   Served to z15 (about 5 m/px here); deeper tiles are cropped from their z15 ancestor. Sea floor is clamped to 0 so the
+   Marmara and Black Sea coasts sit flat under the imagery. */
+const TERRARIUM = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/';
+const HM = 65, TMAX = 15;   // 65 x 65 posts per tile
+const demCache = new Map();
+function demTile(z, x, y) {
+  const id = z + '/' + x + '/' + y;
+  if (demCache.has(id)) { const v = demCache.get(id); demCache.delete(id); demCache.set(id, v); return v; }
+  const p = fetch(`${TERRARIUM}${id}.png`, { mode: 'cors' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(createImageBitmap).then(bmp => {
+    const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0); bmp.close && bmp.close();
+    const d = g.getImageData(0, 0, c.width, c.height).data; const h = new Float32Array(c.width * c.height);
+    for (let i = 0; i < h.length; i++) h[i] = Math.max(0, d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768);
+    return { w: c.width, h };
+  }).catch(e => { demCache.delete(id); throw e; });
+  demCache.set(id, p);
+  while (demCache.size > 160) demCache.delete(demCache.keys().next().value);
+  return p;
+}
+// heights for tile (level, x, y) from the terrarium tile at zoom z (an ancestor when z < level); a missing or failed tile
+// falls back to coarser zooms (a 404 is open sea, a transient error heals when Cesium reloads the area)
+function demHeights(x, y, level, z) {
+  const k = 2 ** (level - z), ax = Math.floor(x / k), ay = Math.floor(y / k), ox = (x - ax * k) / k, oy = (y - ay * k) / k;
+  return demTile(z, ax, ay).then(({ w, h }) => {
+    const out = new Float32Array(HM * HM);
+    for (let j = 0; j < HM; j++) {
+      const fy = Math.min(w - 1, Math.max(0, (oy + j / (HM - 1) / k) * w - 0.5)); const y0 = Math.floor(fy), y1 = Math.min(w - 1, y0 + 1), ty = fy - y0;
+      for (let i = 0; i < HM; i++) {
+        const fx = Math.min(w - 1, Math.max(0, (ox + i / (HM - 1) / k) * w - 0.5)); const x0 = Math.floor(fx), x1 = Math.min(w - 1, x0 + 1), tx = fx - x0;
+        const a = h[y0 * w + x0] + (h[y0 * w + x1] - h[y0 * w + x0]) * tx, b = h[y1 * w + x0] + (h[y1 * w + x1] - h[y1 * w + x0]) * tx;
+        out[j * HM + i] = a + (b - a) * ty;
+      }
+    }
+    return out;
+  }, () => z > 0 && level - z < 6 ? demHeights(x, y, level, z - 1) : new Float32Array(HM * HM));
+}
+function openTerrain() {
+  return new C.CustomHeightmapTerrainProvider({
+    width: HM, height: HM, tilingScheme: new C.WebMercatorTilingScheme(),
+    credit: new C.Credit('Terrain <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Mapzen Terrain Tiles on AWS</a> (SRTM, EU-DEM, GMTED, ETOPO1)', true),
+    callback: (x, y, level) => demHeights(x, y, level, Math.min(level, TMAX)),
+  });
+}
 async function setupBase() {
   if (useGoogle) {
     const credit = new C.Credit('<span class="gword"><span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span></span>', true);
@@ -352,12 +398,24 @@ async function setupBase() {
     globe.show = false;
   } else {
     globe.show = true;
+    if (Q.get('terrainsrc') !== 'flat') viewer.terrainProvider = openTerrain();
+    globe.maximumScreenSpaceError = LIVE ? 1.5 : 1.2; globe.tileCacheSize = 400; globe.preloadSiblings = true;
+    // site crops underneath: same Esri imagery, so they show through wherever a world tile fails to load
     for (const k in SITES) {
       const [w, s, e, n] = SITES[k].b;
-      const prov = await C.SingleTileImageryProvider.fromUrl(SITES[k].img, { rectangle: C.Rectangle.fromDegrees(w, s, e, n) });
-      viewer.imageryLayers.addImageryProvider(prov);
+      const rect = C.Rectangle.fromDegrees(w, s, e, n);
+      const prov = await C.SingleTileImageryProvider.fromUrl(SITES[k].img, { rectangle: rect });
+      viewer.imageryLayers.add(new C.ImageryLayer(prov, { rectangle: rect }));
     }
+    const esri = new C.UrlTemplateImageryProvider({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maximumLevel: 19,
+      credit: new C.Credit('Imagery <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener">Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics, GIS User Community)', true),
+    });
+    let fails = 0; esri.errorEvent.addEventListener(() => { if (++fails === 12 && LIVE) toast('Satellite imagery tiles are not loading here. The landfill areas still show the bundled imagery.', 8000); });
+    if (Q.get('imagery') !== 'crops') viewer.imageryLayers.addImageryProvider(esri);
   }
+  const mn = $('mapName'); if (mn) mn.textContent = useGoogle ? "Google's photorealistic 3D map" : 'open 3D satellite map';
+  const src = $('srcline'); if (src) src.innerHTML = '<b>Methane data</b> Carbon Mapper (Tanager-1, EMIT) · <b>3D map</b> ' + (useGoogle ? 'Google Photorealistic 3D Tiles' : 'Esri World Imagery on open terrain (no key)') + ' · heights and motion modelled · rendered with CesiumJS';
 }
 async function sampleTerrain(site) {
   if (LIVE) setLoading(`Reading terrain under ${SITES[site].full}…`);
@@ -593,12 +651,12 @@ function applyTime(t) {
 /* ---------------- frame API ---------------- */
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 window.__ready = (async () => {
-  if (LIVE) { if (!KEY && !Q.get('nokey')) { showKeyGate(''); await new Promise(() => {}); } setLoading('Connecting to Google Photorealistic 3D Tiles…'); }
+  if (LIVE) setLoading(useGoogle ? 'Connecting to Google Photorealistic 3D Tiles…' : 'Loading the open 3D map (satellite imagery and terrain)…');
   try { await setupBase(); }
   catch (e) {
     if (!LIVE) throw e;
     const code = e && e.statusCode;
-    showKeyGate(`Google rejected this key${code ? ' (HTTP ' + code + ')' : ''}. Check that the Map Tiles API is enabled for its project, billing is active, and any website restriction allows ${location.origin}.`);
+    showKeyGate(`Google rejected this key${code ? ' (HTTP ' + code + ')' : ''}. Check that the Map Tiles API is enabled for its project, billing is active, and any website restriction allows ${location.origin}. Or continue on the open map, which needs no key.`);
     await new Promise(() => {});
   }
   if (Q.get('terrain') !== '0') {
@@ -730,7 +788,7 @@ function drawChart() {
   });
 }
 function shareURL() { const u = new URL(location.origin + location.pathname); if (cur) { u.searchParams.set('site', cur.site); u.searchParams.set('ov', cur.t); } const look = +stage.uniforms.u_look; if (look) u.searchParams.set('look', LOOKS[look]); return u.toString(); }
-function syncURL() { const u = new URL(shareURL()); for (const k of ['nokey', 'debug', 'stats']) if (Q.get(k)) u.searchParams.set(k, Q.get(k)); history.replaceState(null, '', u); }
+function syncURL() { const u = new URL(shareURL()); for (const k of ['nokey', 'base', 'debug', 'stats']) if (Q.get(k)) u.searchParams.set(k, Q.get(k)); history.replaceState(null, '', u); }
 
 /* camera guard: keep the orbit camera above the ground near the target */
 const MIN_UP = 260;
@@ -823,7 +881,8 @@ function startLive() {
   const want = Q.get('site') && Q.get('ov') ? sceneAt(Q.get('site'), Q.get('ov')) : null;
   const lk = lookIndex(Q.get('look') || LOOK); stage.uniforms.u_look = lk; $('lookSel').value = String(lk);
   selectOverpass(want || cur, false); flyToSite(cur.site, 0.1);
-  if (!useGoogle) $('keyBtn').textContent = 'Use 3D tiles';
+  $('baseBtn').textContent = useGoogle ? 'Open map (no key)' : 'Google 3D Tiles';
+  $('keyBtn').hidden = !useGoogle;
   if (matchMedia('(max-width: 760px)').matches) togglePanel(true);
   scene.preUpdate.addEventListener(liveTick);
   const stopOrbit = () => { if (!LIVESTATE.tour && LIVESTATE.orbit) { LIVESTATE.orbit = false; buildPanel(); } };
@@ -847,6 +906,12 @@ function startLive() {
   $('panelToggle').onclick = () => togglePanel();
   $('shareBtn').onclick = async () => { const url = shareURL(); try { await navigator.clipboard.writeText(url); toast('Link copied. It opens this site and overpass.'); } catch (e) { prompt('Copy this link', url); } };
   $('keyBtn').onclick = () => { try { localStorage.removeItem('gmaps_key'); } catch (e) {} location.href = location.origin + location.pathname; };
+  $('baseBtn').onclick = () => {
+    const u = new URL(shareURL());
+    if (useGoogle) { u.searchParams.set('base', 'open'); location.href = u.toString(); }
+    else if (KEY) location.href = u.toString();          // a key is stored but the open map was forced: just switch
+    else showKeyGate('');
+  };
   document.addEventListener('keydown', e => {
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
     const tag = (e.target && e.target.tagName) || '';
@@ -865,6 +930,9 @@ function startLive() {
   document.addEventListener('visibilitychange', () => { viewer.useDefaultRenderLoop = !document.hidden; LIVESTATE.last = null; });
 }
 if (LIVE) {
-  $('keyForm').onsubmit = e => { e.preventDefault(); const k = $('keyInput').value.trim(); if (!/^[A-Za-z0-9_\-]{20,}$/.test(k)) { $('keyErr').textContent = 'That does not look like a Google API key.'; $('keyErr').hidden = false; return; } try { localStorage.setItem('gmaps_key', k); } catch (err) {} location.href = location.origin + location.pathname + location.search.replace(/[?&]nokey=1/, ''); };
-  $('keySkip').onclick = () => { const u = new URL(location.href); u.searchParams.set('nokey', '1'); location.href = u.toString(); };
+  $('keyForm').onsubmit = e => { e.preventDefault(); const k = $('keyInput').value.trim(); if (!/^[A-Za-z0-9_\-]{20,}$/.test(k)) { $('keyErr').textContent = 'That does not look like a Google API key.'; $('keyErr').hidden = false; return; } try { localStorage.setItem('gmaps_key', k); } catch (err) {} const u = new URL(location.href); u.searchParams.delete('nokey'); u.searchParams.delete('base'); location.href = u.toString(); };
+  $('keySkip').onclick = () => {
+    if (LIVESTATE.liveSince) { $('keyGate').style.display = 'none'; return; }   // opened from the panel: keep exploring
+    const u = new URL(location.href); u.searchParams.set('base', 'open'); location.href = u.toString();
+  };
 }
