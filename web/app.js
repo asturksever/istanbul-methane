@@ -85,6 +85,9 @@ for (const k in SITES) {
     geo: new C.Cartesian4(lon0 * Math.PI / 180, lat0 * Math.PI / 180, 1 / (R * cl), 1 / R),
     merc: new C.Cartesian4(w * Math.PI / 180, e * Math.PI / 180, my(s), my(n)) };
 }
+// open on Silivri straight away (or the deep-linked site) instead of Cesium's default whole-globe view
+if (LIVE) { const F0 = FRAME[Q.get('site') === 'sile' ? 'sile' : 'silivri'];
+  camera.setView({ destination: C.Cartesian3.fromDegrees(F0.lon0, F0.lat0, 9000), orientation: { heading: 0, pitch: -Math.PI / 2 + 1e-3, roll: 0 } }); }
 
 /* ---------------- plume column texture ---------------- */
 const PC = document.createElement('canvas'); PC.width = PC.height = 1024;
@@ -660,7 +663,9 @@ window.__ready = (async () => {
     await new Promise(() => {});
   }
   if (Q.get('terrain') !== '0') {
-    for (const site of ['silivri', 'sile']) await sampleTerrain(site);
+    // the start site goes last, so the view behind the loading screen ends where the app opens
+    const first = LIVE && Q.get('site') === 'sile' ? 'sile' : 'silivri';
+    for (const site of !LIVE || first === 'sile' ? ['silivri', 'sile'] : ['sile', 'silivri']) await sampleTerrain(site);
     viewer.resolutionScale = 1; viewer.resize(); if (tileset) tileset.maximumScreenSpaceError = SSE; viewer.render();
   }
   applyOverpass(sceneAt('silivri', SHOW.silivri[0]));
@@ -880,7 +885,7 @@ function startLive() {
   setHud({ brand: 1, tag: 1, title: 0, card: 1, outro: 0, num: 1 });
   const want = Q.get('site') && Q.get('ov') ? sceneAt(Q.get('site'), Q.get('ov')) : null;
   const lk = lookIndex(Q.get('look') || LOOK); stage.uniforms.u_look = lk; $('lookSel').value = String(lk);
-  selectOverpass(want || cur, false); flyToSite(cur.site, 0.1);
+  selectOverpass(want || cur, false); flyToSite(cur.site, 1.6);   // short glide from the overhead loading view into the orbit
   $('baseBtn').textContent = useGoogle ? 'Open map (no key)' : 'Google 3D Tiles';
   $('keyBtn').hidden = !useGoogle;
   if (matchMedia('(max-width: 760px)').matches) togglePanel(true);
