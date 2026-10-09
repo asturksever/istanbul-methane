@@ -25,7 +25,8 @@ jobs:
       - uses: actions/checkout@v4
 
       # Optional: a browser key restricted to https://asturksever.github.io/* in Google Cloud Console.
-      # Without the secret the app asks each visitor for their own key.
+      # With the secret, visitors get Google Photorealistic 3D Tiles; without it, the open map (no key).
+      # The key ends up in the public config.js, so the referrer and API restrictions are what protect it.
       - name: Inject public Maps key
         env:
           KEY: ${{ secrets.GMAPS_PUBLIC_KEY }}
@@ -34,7 +35,7 @@ jobs:
             printf "window.PUBLIC_MAPS_KEY = '%s';\n" "$KEY" > web/config.js
             echo "Public key injected into config.js"
           else
-            echo "No GMAPS_PUBLIC_KEY secret: visitors will be asked for a key"
+            echo "No GMAPS_PUBLIC_KEY secret: visitors get the open map"
           fi
 
       - uses: actions/configure-pages@v5
