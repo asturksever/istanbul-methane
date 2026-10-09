@@ -1,13 +1,30 @@
 {
   "name": "istanbul-methane",
-  "version": "1.1.0",
-  "description": "Carbon Mapper methane plumes over Istanbul landfills as volumetric 3D gas clouds on Google Photorealistic 3D Tiles (CesiumJS).",
+  "version": "1.2.0",
+  "description": "Carbon Mapper methane plumes over Istanbul's Silivri and Şile landfills as volumetric 3D gas clouds, on an open 3D map or Google Photorealistic 3D Tiles (CesiumJS).",
+  "homepage": "https://asturksever.github.io/istanbul-methane/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asturksever/istanbul-methane.git"
+  },
+  "keywords": [
+    "methane",
+    "carbon-mapper",
+    "landfill",
+    "istanbul",
+    "cop31",
+    "cesiumjs",
+    "3d-tiles",
+    "volumetric-rendering",
+    "climate"
+  ],
+  "author": "Said Turksever",
   "scripts": {
     "start": "cd web && python3 -m http.server 8000",
     "render": "python3 render.py",
     "stills": "python3 render.py --stills 3,22,47"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
     "cesium": "^1.146.0"
   },

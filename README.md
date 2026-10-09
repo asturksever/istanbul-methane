@@ -1,5 +1,7 @@
 # Istanbul methane
 
+**Live app: https://asturksever.github.io/istanbul-methane/** (no sign-up, no key)
+
 Carbon Mapper methane plumes over Istanbul's two big landfills, drawn as volumetric 3D gas clouds on a 3D map:
 an open satellite map that needs no key, or Google Photorealistic 3D Tiles if you have a key. One static web app does two jobs: an interactive explorer, and (driven frame by frame
 by `render.py`) a cinematic video renderer.
@@ -99,3 +101,21 @@ version looked much worse at 30 MB than 30 fps. Rendering is resumable: frames a
 Methane data: Carbon Mapper. 3D map: Esri World Imagery (Esri, Maxar, Earthstar Geographics, GIS User
 Community) on Mapzen Terrain Tiles hosted by AWS Open Data, or Google Photorealistic 3D Tiles. The active map's
 attribution is shown on screen. Rendering: CesiumJS.
+
+## License
+
+The code in this repository (the web app, the renderer and the data tools) is released under the
+[MIT License](LICENSE).
+
+Data, imagery and services used by the app are not covered by that license and remain under their providers'
+terms:
+
+- Methane plume footprints and emission rates (`data/plumes.js`, `web/plumes.js`): derived from
+  [Carbon Mapper](https://carbonmapper.org) data; see Carbon Mapper's terms of use.
+- Site imagery crops (`web/data/*.webp`) and the streamed open map imagery: Esri World Imagery (Esri, Maxar,
+  Earthstar Geographics, GIS User Community), under Esri's terms of use.
+- Open terrain: Mapzen Terrain Tiles on AWS Open Data (SRTM, EU-DEM, GMTED, ETOPO1), with the attribution its
+  sources require.
+- Google Photorealistic 3D Tiles: streamed under the Google Maps Platform terms; nothing from them is stored in
+  this repository.
+- CesiumJS: Apache License 2.0, loaded from npm or jsDelivr, not vendored here.
