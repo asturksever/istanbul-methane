@@ -609,23 +609,26 @@ function setHud(h) {
   if (cur && cur.q != null) $('cNum').textContent = (cur.q * h.num / 1000).toFixed(1);
 }
 
-function reelShot(site, lt, dur) {
+function reelShot(site, lt, dur, pre = 0) {
   ensureOverpass(site, 0);                           // each site's peak overpass
-  const u = Math.min(1, lt / dur), s = cur, R0 = SITEV[site].range;
+  const u = Math.min(1, lt / dur), s = cur, R0 = SITEV[site].range, z = site === 'sile' ? 0.8 : 1;
   const heading = (s.wd + 180 + 22 - 44 * easeInOut(u) + 360) % 360;   // behind the source, drifting across
-  const pose = orbitPose(orbitTarget(), heading, lerp(-36, -29, u), lerp(R0 * 1.0, R0 * 0.8, easeInOut(u)), orbitTargetH());
-  return { pose, fade: ease(lt / 0.45), front: 400 + Math.min(1, lt / 2.4) * (S.dmax * 1.3 + 2500), simT: lt * 1.15 };
+  const pose = orbitPose(orbitTarget(), heading, lerp(-36, -29, u), lerp(R0 * 0.95 * z, R0 * 0.74 * z, easeInOut(u)), orbitTargetH());
+  const b = lt + pre;                                // pre: start part-way into the bloom so frame 1 already shows gas
+  return { pose, fade: pre ? 1 : ease(lt / 0.45), front: 400 + Math.min(1, b / 2.4) * (S.dmax * 1.3 + 2500), simT: b * 1.15 };
 }
 function capAlpha(t, a, b) { return Math.min(ease((t - a) / 0.35), 1 - ease((t - (b - 0.3)) / 0.3)); }
 function applyReel(t) {
   let r;
-  if (t < RT.sile) r = reelShot('silivri', t, RT.sile);
+  if (t < RT.sile) r = reelShot('silivri', t, RT.sile, 0.9);
   else if (t < RT.out) r = reelShot('sile', t - RT.sile, RT.out - RT.sile + 2);
   else {
-    const lt = t - RT.out, u = lt / (RT.total - RT.out);
-    const a = reelShot('sile', RT.out - RT.sile, RT.out - RT.sile + 2).pose;
-    const far = { lon: a.lon, lat: a.lat, h: a.h + 5200, heading: a.heading + 18, pitch: -48 };
-    r = { pose: lerpPose(a, far, easeInOut(u)), fade: 1 - ease((lt - 2.2) / 2.6), front: 1e6, simT: (RT.out - RT.sile) * 1.15 + lt * 1.15 };
+    // pull back around the plume (same target), so the source stays centred under the closing captions
+    const lt = t - RT.out, u = easeInOut(lt / (RT.total - RT.out)), dur = RT.out - RT.sile + 2, u0 = (RT.out - RT.sile) / dur;
+    ensureOverpass('sile', 0); const R0 = SITEV.sile.range * 0.8;
+    const heading = (cur.wd + 180 + 22 - 44 * easeInOut(u0) - 10 * u + 360) % 360;
+    const pose = orbitPose(orbitTarget(), heading, lerp(lerp(-36, -29, u0), -40, u), lerp(lerp(R0 * 0.95, R0 * 0.74, easeInOut(u0)), R0 * 1.25, u), orbitTargetH());
+    r = { pose, fade: 1, front: 1e6, simT: (RT.out - RT.sile) * 1.15 + lt * 1.15 };
   }
   setPose(r.pose);
   stage.uniforms.u_fade = r.fade; stage.uniforms.u_front = r.front; stage.uniforms.u_time = r.simT;
